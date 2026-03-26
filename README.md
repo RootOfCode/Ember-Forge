@@ -251,7 +251,7 @@ ember-forge/
 ## Technical Notes
 
 - **Language**: Common Lisp (SBCL recommended)
-- **Rendering**: SDL2 primitives + TTF fonts — no external sprite sheets
+- **Rendering**: SDL2 primitives + TTF fonts — no external sprite sheets besides some basic background images
 - **Window size**: 1280 × 768
 - **Target frame rate**: 60 fps (16 ms tick)
 - **All production math uses `double-float`** to avoid integer overflow at high prestige counts
