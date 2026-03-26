@@ -1,0 +1,33 @@
+(in-package #:ember-forge)
+
+(defparameter *palette*
+  '(:bg         (18  16  20  255)
+    :bg-panel   (28  25  32  255)
+    :bg-sidebar (22  20  26  255)
+    :bg-top     (24  22  28  255)
+    :btn-normal (55  50  65  255)
+    :btn-hover  (80  72  95  255)
+    :btn-active (110 95 130  255)
+    :text       (220 215 230  255)
+    :text-dim   (130 120 145  255)
+    :gold       (220 180  50  255)
+    :rust       (180  80  40  255)
+    :orange     (200 120  30  255)
+    :bronze     (160 100  40  255)
+    :silver     (180 185 195  255)
+    :blue       (80  140 200  255)
+    :cyan       (60  200 190  255)
+    :red        (210  60  60  255)
+    :gray       (120 120 130  255)
+    :dark       (40  38  45  255)
+    :brown      (110  70  40  255)
+    :green-ok   (60 180  80  255)
+    :warn       (200 160  40  255)))
+
+(defun palette (key)
+  (getf *palette* key '(255 0 255 255)))
+
+(defun palette-rgba (key)
+  (destructuring-bind (r g b a) (palette key)
+    (values r g b a)))
+
