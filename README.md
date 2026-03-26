@@ -1,4 +1,4 @@
-# Ember Forge
+# 🔥 Ember Forge
 
 An alchemical smelting idle/incremental game written in **Common Lisp** using SDL2.
 
