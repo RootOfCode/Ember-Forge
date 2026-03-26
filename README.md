@@ -1,4 +1,4 @@
-# Ember Forge
+# 🔥 Ember Forge
 
 An alchemical smelting idle/incremental game written in **Common Lisp** using SDL2.
 
@@ -184,18 +184,7 @@ ember-forge/
 ├── assets/
 │   ├── backgrounds/             # Panel background images (PNG)
 │   └── fonts/                   # Bundled TTF/OTF fonts
-├── dlls/                        # Bundled Windows runtime DLLs
-│   ├── sdl2/
-│   ├── sdl2_image/
-│   ├── sdl2_ttf/
-│   ├── libffi/
-│   ├── libfreetype-6/
-│   ├── libstdc++-6/
-│   ├── libgcc_s_seh-1/
-│   ├── libwinpthread-1/
-│   └── zlib1/
 ├── scripts/
-│   ├── wine/                    # Cross-compilation helpers (Linux → Windows)
 │   └── build-release.lisp       # Release build script
 ├── build.sh                     # Linux build script
 ├── build.bat                    # Windows build script
