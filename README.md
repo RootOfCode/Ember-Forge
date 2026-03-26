@@ -10,13 +10,15 @@ You start with a crumbling furnace and a pile of raw stone. Mine ore, discover a
 
 ## Features
 
-- **6 resource tiers** — from humble Stone up to rare Ember Crystals
-- **Smelting queue** — up to 5 (expandable) concurrent smelt jobs with real-time progress bars
+- **7 resource tiers** — from humble Stone up to rare Ember Crystals, plus intermediate crafted goods (Steel Plate, Rivets, Machine Parts)
+- **Smelting queue** — up to 5 (expandable via upgrades) concurrent smelt jobs with real-time progress bars
 - **Building system** — purchase and stack buildings that auto-produce resources every tick
-- **Upgrade tree** — unlock new recipes, boost production multipliers, and expand your operation
+- **Upgrade tree** — unlock new recipes, boost production multipliers, expand storage, and expand your operation
+- **Shop** — buy persistent per-run bonuses using Coins (discount stacking, sell boosts, storage expansion, and more)
 - **Prestige / Ascension** — reset for *Ember Essence* and buy permanent *Eternal Upgrades* that carry over every run
 - **Random events** — cave-ins, wandering merchants, and ember pulses keep runs fresh
 - **Offline progress** — up to 8 hours of production is applied when you reload your save
+- **Achievements** — cosmetic milestones tracked across your session
 - **Human-readable save file** — stored as a plain Lisp plist at `~/.local/share/ember-forge/save.lisp`
 
 ---
@@ -39,10 +41,8 @@ You start with a crumbling furnace and a pile of raw stone. Mine ore, discover a
 |---|---|
 | SBCL for Windows | [sbcl.org](https://www.sbcl.org/) |
 | Quicklisp | [quicklisp.org](https://www.quicklisp.org/) |
-| SDL2 runtime DLLs | `SDL2.dll`, `SDL2_image.dll`, `SDL2_ttf.dll` + dependencies (bundled in `dlls/`) |
-| `libffi-8.dll` | Required by CFFI — bundled in `dlls/libffi/` |
-
-All required Windows DLLs are already bundled in the `dlls/` directory of this repository.
+| SDL2 runtime DLLs | `SDL2.dll`, `SDL2_image.dll`, `SDL2_ttf.dll` + dependencies |
+| `libffi-8.dll` | Required by CFFI |
 
 ---
 
@@ -68,18 +68,6 @@ build.bat
 dist\ember-forge.exe
 ```
 
-### Build a Windows binary (on Linux via Wine)
-
-Requires Wine with a Windows SBCL installation inside it, plus a MinGW-w64 cross-compiler (`x86_64-w64-mingw32-gcc`) to handle Quicklisp/CFFI grovel steps.
-
-See `scripts/wine/README.md` for full setup instructions.
-
-```bash
-./scripts/wine/gcc-wrap.sh   # configure the Wine GCC wrapper once
-./build.sh --target windows
-wine dist/ember-forge.exe
-```
-
 ---
 
 ## Gameplay Overview
@@ -89,35 +77,87 @@ wine dist/ember-forge.exe
 | Tier | Resources | Unlocked by |
 |------|-----------|-------------|
 | 0 | Stone, Coal, Coins | Start |
-| 1 | Iron Ore, Copper Ore, Tin | 50+ stone |
+| 1 | Iron Ore, Copper Ore, Tin Ore | 50+ stone |
 | 2 | Iron Bar, Copper Bar | Own any mine |
-| 3 | Bronze, Gear, Bellows | 10 iron bars |
-| 4 | Steel | Steel Alloy upgrade |
-| 5 | Mythril | Deep Drilling upgrade |
-| 6 | Ember Crystal | 50+ Mythril ever produced |
+| 3 | Bronze Bar, Gear, Bellows, Rivets | 10 iron bars / Metalworking upgrade |
+| 4 | Steel Bar, Steel Plate | Steel Alloy upgrade / Metalworking upgrade |
+| 5 | Machine Part, Mythril Ore | Industrial Tools upgrade / Deep Drilling upgrade |
+| 6 | Ember Crystal | 1+ Mythril Drill |
 | ∞ | *(prestige loop)* | First Ember Crystal |
 
 ### Buildings
 
 Buildings are purchased with resources and produce goods automatically every game tick. Costs scale by ×1.15 per building owned. Notable buildings:
 
-- **Rusty Pickaxe** — mines Stone passively
-- **Coal Pit / Iron Mine / Copper Mine** — dig up raw ore
-- **Auto-Furnace** — automatically runs iron-bar smelt jobs
-- **Bellows Workshop** — speeds up all active smelting by 10% per workshop
-- **Mythril Drill** — unlocked by the *Deep-Core Drilling* upgrade
+- **Rusty Pickaxe** — mines Stone passively (0.5/s)
+- **Coal Pit** — produces Coal (0.3/s)
+- **Iron Mine** — extracts Iron Ore (0.2/s); unlocks at 50 Stone ever mined
+- **Copper Mine** — extracts Copper Ore (0.2/s); unlocks at 50 Stone ever mined
+- **Tinsmith** — refines Tin Ore for alloying (0.15/s)
+- **Market Stall** — generates Coins passively (0.35/s); unlocks at 100 Stone ever mined
+- **Auto-Furnace** — automatically runs iron-bar smelt jobs; adds one smelting slot
+- **Bellows Workshop** — speeds up all active smelting by 10% per workshop owned
+- **Mythril Drill** — unlocked by the *Deep-Core Drilling* upgrade; mines Mythril (0.05/s)
 
 ### Smelting
 
-Open the **Forge** panel and queue up to 5 recipes simultaneously. Each job consumes input resources on enqueue and deposits outputs when complete. Slot count is expandable via upgrades.
+Open the **Forge** panel and queue up to 5 recipes simultaneously. Each job consumes input resources on enqueue and deposits outputs when complete. Slot count is expandable via the Second and Third Crucible upgrades.
 
-| Recipe | Inputs | Output | Time |
-|--------|--------|--------|------|
-| Smelt Iron Bar | 3 Iron Ore + 1 Coal | 1 Iron Bar | 4 s |
-| Smelt Copper Bar | 3 Copper Ore + 1 Coal | 1 Copper Bar | 4 s |
-| Alloy Bronze | 2 Copper Bar + 1 Tin | 1 Bronze | 8 s |
-| Forge Steel | 2 Iron Bar + 3 Coal | 1 Steel | 12 s |
-| Cast Gear | 1 Iron Bar | 1 Gear | 3 s |
+| Recipe | Inputs | Output | Time | Unlock |
+|--------|--------|--------|------|--------|
+| Smelt Iron Bar | 3 Iron Ore + 1 Coal | 1 Iron Bar | 4 s | Always |
+| Smelt Copper Bar | 3 Copper Ore + 1 Coal | 1 Copper Bar | 4 s | Always |
+| Cast Gear | 1 Iron Bar | 1 Gear | 3 s | Always |
+| Alloy Bronze | 2 Copper Bar + 1 Tin Ore | 1 Bronze Bar | 8 s | Own any Copper Bar + Tin Ore |
+| Craft Bellows | 2 Bronze Bar + 2 Coal | 1 Bellows | 10 s | Always |
+| Forge Rivets | 1 Iron Bar + 1 Coal | 8 Rivets | 6 s | Metalworking upgrade |
+| Forge Steel | 2 Iron Bar + 3 Coal | 1 Steel Bar | 12 s | Steel Alloy Research upgrade |
+| Machine Gears | 1 Steel Bar | 3 Gears | 6 s | 1+ Steel Bar ever |
+| Hammer Steel Plate | 2 Steel Bar + 1 Coal | 1 Steel Plate | 14 s | Metalworking upgrade |
+| Mint Trade Tokens | 1 Bronze Bar + 1 Gear | 250 Coins | 10 s | Coin Minting upgrade |
+| Assemble Machine Part | 2 Gear + 1 Steel Plate + 10 Rivets | 1 Machine Part | 22 s | Industrial Tools upgrade |
+| Condense Ember Crystal | 10 Mythril Ore + 5 Steel Bar | 1 Ember Crystal | 30 s | Own 1+ Mythril Drill |
+
+### Upgrade Tree
+
+Upgrades are purchased once with resources. A selection of notable upgrades:
+
+| Upgrade | Effect |
+|---------|--------|
+| Sturdy Gloves | Double click mining power |
+| Miner's Pouch | Double manual gathering yield |
+| Quick Hands | Manual actions 0.5 s faster |
+| Hardened Pickaxes | Pickaxes mine 2× faster |
+| Gear-Driven Picks | Pickaxes mine 75% faster |
+| Deep Coal Seams | Coal Pits produce 50% more coal |
+| Furnace Tuning | All smelting 25% faster |
+| Second Crucible | +1 smelting slot |
+| Third Crucible | +1 smelting slot |
+| Market Network | Market Stalls generate 2× coins |
+| Bright Signage | Market Stalls generate +50% coins |
+| Reinforced Sacks | Stone/Coal storage +50% |
+| Ore Crates | Ore storage +50% |
+| Precision Molds | Gears, Bellows, and Rivets craft 2× output |
+| Steel Alloy Research | Unlocks steel smelting recipe |
+| Metalworking | Unlocks Steel Plates and Rivets recipes |
+| Coin Minting | Unlocks the Trade Token minting recipe |
+| Ancient Veins | +50% ore production from all mines |
+| Deep-Core Drilling | Unlocks Mythril Drill building |
+| Industrial Tools | Unlocks Machine Parts; Mythril Drills +50% |
+
+### Shop
+
+The **Shop** panel lets you spend Coins on stackable per-run bonuses. Effects apply immediately and persist until you Ascend.
+
+| Item | Max Level | Effect per level |
+|------|-----------|-----------------|
+| Haggling Lessons | 10 | Shop prices −5% (floor: 60% of base) |
+| Salesmanship | 12 | Sell values +10% (cap: 3×) |
+| Warehouse Lease | 8 | All storage caps +15% |
+| Smelter's Coupon | 10 | Smelting speed +10% |
+| Foreman Contract | 10 | All building production +7% |
+
+Shop costs scale by a per-item factor each level (1.6×–2.0×). Buying resources directly from the shop is also available for any resource that has a sell value — prices are calibrated to prevent buy-then-sell arbitrage.
 
 ### Prestige (Ascension)
 
@@ -145,6 +185,19 @@ Events fire roughly every 5–15 minutes and present a modal choice:
 - **Wandering Merchant** — trade refined bars for rarer materials
 - **Ember Pulse** — double smelt speed for 30 seconds
 
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `1` | Forge panel |
+| `2` | Mine panel |
+| `3` | Upgrades panel |
+| `4` | Recipes panel |
+| `5` | Shop panel |
+| `6` | Prestige panel |
+| `Esc` | Main menu |
+| `F11` | Toggle fullscreen |
+
 ---
 
 ## Project Structure
@@ -159,6 +212,7 @@ ember-forge/
 │   ├── recipes.lisp             # Recipe definitions & smelt queue logic
 │   ├── buildings.lisp           # Building definitions & tick logic
 │   ├── upgrades.lisp            # Upgrade tree definitions
+│   ├── shop.lisp                # Shop items, buy/sell logic, economy modifiers
 │   ├── events.lisp              # Random event system
 │   ├── prestige.lisp            # Prestige / ascension logic
 │   ├── ui/
@@ -203,10 +257,11 @@ ember-forge/
 - **All production math uses `double-float`** to avoid integer overflow at high prestige counts
 - **Delta-time is capped at 0.5 s** to prevent large jumps after alt-tab
 - **Autosave** every 60 seconds of real time to `~/.local/share/ember-forge/save.lisp`
+- **Multiple save slots** supported (`save-slot` field in game state)
 - **Offline production** computed on load (capped at 8 hours)
 
 ---
 
 ## License
 
-See individual DLL subdirectories under `dlls/` for third-party library licenses.
+See individual font subdirectories under `assets/fonts/` for third-party font licenses.
