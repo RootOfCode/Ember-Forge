@@ -51,7 +51,7 @@
    (make-building-def
     :id :furnace
     :name "Auto-Furnace"
-    :description "Smelts iron bars automatically. Adds a smelt slot."
+    :description "Automatically runs iron bar smelt jobs; adds one smelting slot."
     :base-cost '(:coins 500.0d0 :stone 200.0d0 :gear 5.0d0)
     :production '()
     :unlock (lambda (s) (>= (building-count s :iron-mine) 1)))
