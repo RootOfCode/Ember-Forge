@@ -1,5 +1,7 @@
 (in-package #:ember-forge)
 
+(defvar *events* nil)
+
 (defstruct event-def
   (id :none :type keyword)
   (name "" :type string)

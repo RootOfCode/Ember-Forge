@@ -69,34 +69,45 @@
          (i 0))
     (draw-label ren font "BUILDINGS" b-x (- b-y 18) :text)
     (dolist (def *buildings*)
-      (when (building-unlocked-p state def)
-        (let* ((id (building-def-id def))
-               (count (building-count state id))
-               (owned count)
-               (cost (building-cost def owned))
-               (can-buy (can-afford-plist-p state cost))
-               (row-y (+ b-y (* i (+ row-h 6)))))
-          (incf i)
-          (draw-rect ren b-x row-y b-w row-h :bg-sidebar :border-color :btn-hover)
-          (draw-label ren font
-                      (format nil "~A  ×~D" (building-def-name def) count)
-                      (+ b-x 10) (+ row-y 6) :text)
-          (draw-label ren font
-                      (if (building-def-production def)
-                          (with-output-to-string (s)
-                            (loop for (res rate) on (building-def-production def) by #'cddr
-                                  for j from 0
-                                  do (progn
-                                       (when (> j 0) (write-string ", " s))
-                                       (format s "+~A ~A"
-                                               (fmt-rate (* rate (building-prod-mult state id)))
-                                               (resource-name res)))))
-                          "auto-smelt iron bars")
-                      (+ b-x 320) (+ row-y 6) :text-dim)
-          (draw-label ren font (%fmt-cost cost)
-                      (+ b-x (- b-w 96)) (+ row-y 6) :text-dim :align :right)
-          (when (draw-button ren font "Buy" (+ b-x (- b-w 86)) (+ row-y 4) 78 (- row-h 8)
-                             :enabled can-buy)
-            (buy-building! state id))))))
+	      (when (building-unlocked-p state def)
+	        (let* ((id (building-def-id def))
+	               (count (building-count state id))
+	               (owned count)
+	               (cost (building-cost def owned))
+	               (can-buy (can-afford-plist-p state cost))
+	               (row-y (+ b-y (* i (+ row-h 6))))
+	               (hovered (rect-hovered-p b-x row-y b-w row-h)))
+	          (incf i)
+	          (draw-rect ren b-x row-y b-w row-h :bg-sidebar :border-color :btn-hover)
+	          (draw-label ren font
+	                      (format nil "~A  ×~D" (building-def-name def) count)
+	                      (+ b-x 10) (+ row-y 6) :text)
+	          (let* ((desc (building-def-description def))
+	                 (cost-text (%fmt-cost cost))
+	                 (cost-right (+ b-x (- b-w 96)))
+	                 (cost-left (- cost-right (text-width font cost-text)))
+	                 (summary
+	                   (if (building-def-production def)
+	                       (with-output-to-string (s)
+	                         (loop for (res rate) on (building-def-production def) by #'cddr
+	                               for j from 0
+	                               do (progn
+	                                    (when (> j 0) (write-string ", " s))
+	                                    (format s "+~A ~A"
+	                                            (fmt-rate (* (coerce rate 'double-float)
+	                                                         (building-prod-mult state id)
+	                                                         (game-state-prod-mult state)))
+	                                            (resource-name res)))))
+	                       desc))
+	                 (sum-x (+ b-x 320))
+		                 (sum-max-w (max 0 (- cost-left 12 sum-x))))
+		            (when hovered
+		              (ui-set-tooltip desc :x (+ b-x 8) :y row-y :placement :above))
+		            (draw-label-fit ren font summary sum-x (+ row-y 6) :text-dim sum-max-w)
+		            (draw-label ren font cost-text
+		                        cost-right (+ row-y 6) :text-dim :align :right))
+		          (when (draw-button ren font "Buy" (+ b-x (- b-w 86)) (+ row-y 4) 78 (- row-h 8)
+		                             :enabled can-buy)
+	            (buy-building! state id))))))
 
   state)

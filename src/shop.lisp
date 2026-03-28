@@ -1,5 +1,7 @@
 (in-package #:ember-forge)
 
+(defvar *shop-items* nil)
+
 (defun shop-buy-mult (state)
   "Multiplier applied to a resource's base sell-value when buying from the shop.
 

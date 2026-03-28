@@ -128,10 +128,7 @@
             (unless maxed
               (draw-label ren font (format nil "Cost: ~A c" (fmt-number cost))
                           text-right (+ row-y 6) :text-dim :align :right))
-            (when (draw-button ren font (cond
-                                          (maxed "Max")
-                                          ((> lvl 0) "Buy")
-                                          (t "Buy"))
+            (when (draw-button ren font (if maxed "Max" "Buy")
                                btn-x btn-y btn-w btn-h
                                :enabled can-buy
                                :tooltip (if maxed "Fully upgraded."
