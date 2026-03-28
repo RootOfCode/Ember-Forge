@@ -9,75 +9,54 @@
   (production '() :type list)  ; plist (:resource rate-per-sec ...)
   (unlock nil))
 
-(defparameter *buildings*
-  (list
-   (make-building-def
-    :id :pickaxe
-    :name "Rusty Pickaxe"
-    :description "Mines stone automatically. Slow, but it never sleeps."
-    :base-cost '(:coins 10.0d0)
-    :production '(:stone 0.5d0))
+(defbuildings
+  (:pickaxe "Rusty Pickaxe"
+   "Mines stone automatically. Slow, but it never sleeps."
+   :cost (:coins 10.0d0)
+   :produces (:stone 0.5d0))
 
-   (make-building-def
-    :id :coal-pit
-    :name "Coal Pit"
-    :description "Digs coal from the earth. Requires stone infrastructure."
-    :base-cost '(:coins 50.0d0 :stone 20.0d0)
-    :production '(:coal 0.3d0))
+  (:coal-pit "Coal Pit"
+   "Digs coal from the earth. Requires stone infrastructure."
+   :cost (:coins 50.0d0 :stone 20.0d0)
+   :produces (:coal 0.3d0))
 
-   (make-building-def
-    :id :iron-mine
-    :name "Iron Mine"
-    :description "Extracts iron ore from deep veins."
-    :base-cost '(:coins 200.0d0 :stone 100.0d0)
-    :production '(:iron 0.2d0)
-    :unlock (lambda (s) (>= (resource-ever s :stone) 50.0d0)))
+  (:iron-mine "Iron Mine"
+   "Extracts iron ore from deep veins."
+   :cost (:coins 200.0d0 :stone 100.0d0)
+   :produces (:iron 0.2d0)
+   :unlock (>= (resource-ever s :stone) 50.0d0))
 
-   (make-building-def
-    :id :copper-mine
-    :name "Copper Mine"
-    :description "Extracts copper ore."
-    :base-cost '(:coins 250.0d0 :stone 120.0d0)
-    :production '(:copper 0.2d0)
-    :unlock (lambda (s) (>= (resource-ever s :stone) 50.0d0)))
+  (:copper-mine "Copper Mine"
+   "Extracts copper ore."
+   :cost (:coins 250.0d0 :stone 120.0d0)
+   :produces (:copper 0.2d0)
+   :unlock (>= (resource-ever s :stone) 50.0d0))
 
-   (make-building-def
-    :id :tinsmith
-    :name "Tinsmith"
-    :description "Refines tin for alloying."
-    :base-cost '(:coins 400.0d0 :copper-b 5.0d0)
-    :production '(:tin 0.15d0))
+  (:tinsmith "Tinsmith"
+   "Refines tin for alloying."
+   :cost (:coins 400.0d0 :copper-b 5.0d0)
+   :produces (:tin 0.15d0))
 
-   (make-building-def
-    :id :furnace
-    :name "Auto-Furnace"
-    :description "Automatically runs iron bar smelt jobs; adds one smelting slot."
-    :base-cost '(:coins 500.0d0 :stone 200.0d0 :gear 5.0d0)
-    :production '()
-    :unlock (lambda (s) (>= (building-count s :iron-mine) 1)))
+  (:furnace "Auto-Furnace"
+   "Automatically runs iron bar smelt jobs; adds one smelting slot."
+   :cost (:coins 500.0d0 :stone 200.0d0 :gear 5.0d0)
+   :unlock (>= (building-count s :iron-mine) 1))
 
-   (make-building-def
-    :id :bellows-shop
-    :name "Bellows Workshop"
-    :description "Speeds up all smelting by 10% per workshop."
-    :base-cost '(:coins 1000.0d0 :bronze 10.0d0 :bellows 3.0d0)
-    :production '())
+  (:bellows-shop "Bellows Workshop"
+   "Speeds up all smelting by 10% per workshop."
+   :cost (:coins 1000.0d0 :bronze 10.0d0 :bellows 3.0d0))
 
-   (make-building-def
-    :id :market-stall
-    :name "Market Stall"
-    :description "Generates coins from trade and scrap."
-    :base-cost '(:coins 80.0d0 :stone 60.0d0 :coal 20.0d0)
-    :production '(:coins 0.35d0)
-    :unlock (lambda (s) (>= (resource-ever s :stone) 100.0d0)))
+  (:market-stall "Market Stall"
+   "Generates coins from trade and scrap."
+   :cost (:coins 80.0d0 :stone 60.0d0 :coal 20.0d0)
+   :produces (:coins 0.35d0)
+   :unlock (>= (resource-ever s :stone) 100.0d0))
 
-   (make-building-def
-    :id :mythril-drill
-    :name "Mythril Drill"
-    :description "Bores deep into ancient rock for mythril."
-    :base-cost '(:coins 50000.0d0 :steel 50.0d0 :gear 30.0d0)
-    :production '(:mythril 0.05d0)
-    :unlock (lambda (s) (upgrade-owned-p s :deep-drilling)))))
+  (:mythril-drill "Mythril Drill"
+   "Bores deep into ancient rock for mythril."
+   :cost (:coins 50000.0d0 :steel 50.0d0 :gear 30.0d0)
+   :produces (:mythril 0.05d0)
+   :unlock (upgrade-owned-p s :deep-drilling)))
 
 (defun find-building-def (id)
   (find id *buildings* :key #'building-def-id :test #'eq))

@@ -1,29 +1,27 @@
 (in-package #:ember-forge)
 
-(defparameter *resource-defs*
-  (a:plist-hash-table
-   (list
-    :stone    (list :name "Stone"         :color :gray   :tier 0 :base-cap 500.0d0)
-    :coal     (list :name "Coal"          :color :dark   :tier 0 :base-cap 300.0d0)
-    :coins    (list :name "Coins"         :color :gold   :tier 0 :base-cap 1.0d6)
+(defresources
+  (:stone "Stone" :color :gray :tier 0 :cap 500.0d0 :sell 0.5d0)
+  (:coal "Coal" :color :dark :tier 0 :cap 300.0d0 :sell 0.8d0)
+  (:coins "Coins" :color :gold :tier 0 :cap 1.0d6)
 
-    :iron     (list :name "Iron Ore"      :color :rust   :tier 1 :base-cap 200.0d0)
-    :copper   (list :name "Copper Ore"    :color :orange :tier 1 :base-cap 200.0d0)
-    :tin      (list :name "Tin Ore"       :color :silver :tier 1 :base-cap 200.0d0)
+  (:iron "Iron Ore" :color :rust :tier 1 :cap 200.0d0 :sell 1.2d0)
+  (:copper "Copper Ore" :color :orange :tier 1 :cap 200.0d0 :sell 1.2d0)
+  (:tin "Tin Ore" :color :silver :tier 1 :cap 200.0d0 :sell 1.5d0)
 
-    :iron-b   (list :name "Iron Bar"      :color :silver :tier 2 :base-cap 100.0d0)
-    :copper-b (list :name "Copper Bar"    :color :orange :tier 2 :base-cap 100.0d0)
+  (:iron-b "Iron Bar" :color :silver :tier 2 :cap 100.0d0 :sell 5.0d0)
+  (:copper-b "Copper Bar" :color :orange :tier 2 :cap 100.0d0 :sell 5.0d0)
 
-    :bronze   (list :name "Bronze Bar"    :color :bronze :tier 3 :base-cap 80.0d0)
-    :gear     (list :name "Gear"          :color :gray   :tier 3 :base-cap 200.0d0)
-    :bellows  (list :name "Bellows"       :color :brown  :tier 3 :base-cap 50.0d0)
+  (:bronze "Bronze Bar" :color :bronze :tier 3 :cap 80.0d0 :sell 10.0d0)
+  (:gear "Gear" :color :gray :tier 3 :cap 200.0d0 :sell 8.0d0)
+  (:bellows "Bellows" :color :brown :tier 3 :cap 50.0d0 :sell 25.0d0)
 
-    :steel    (list :name "Steel Bar"     :color :blue   :tier 4 :base-cap 60.0d0)
-    :steel-plate (list :name "Steel Plate"   :color :blue   :tier 4 :base-cap 80.0d0)
-    :rivet    (list :name "Rivets"        :color :silver :tier 3 :base-cap 400.0d0)
-    :machine-part (list :name "Machine Part" :color :gray   :tier 5 :base-cap 50.0d0)
-    :mythril  (list :name "Mythril Ore"   :color :cyan   :tier 5 :base-cap 40.0d0)
-    :ember    (list :name "Ember Crystal" :color :red    :tier 6 :base-cap 10.0d0))))
+  (:steel "Steel Bar" :color :blue :tier 4 :cap 60.0d0 :sell 20.0d0)
+  (:steel-plate "Steel Plate" :color :blue :tier 4 :cap 80.0d0 :sell 35.0d0)
+  (:rivet "Rivets" :color :silver :tier 3 :cap 400.0d0 :sell 2.0d0)
+  (:machine-part "Machine Part" :color :gray :tier 5 :cap 50.0d0 :sell 120.0d0)
+  (:mythril "Mythril Ore" :color :cyan :tier 5 :cap 40.0d0 :sell 50.0d0)
+  (:ember "Ember Crystal" :color :red :tier 6 :cap 10.0d0 :sell 200.0d0))
 
 (defun resource-def (kw)
   (gethash kw *resource-defs*))
@@ -39,26 +37,6 @@
 
 (defun resource-base-cap (kw)
   (getf (resource-def kw) :base-cap 0.0d0))
-
-(defparameter *sell-values*
-  (a:plist-hash-table
-   (list
-    :stone 0.5d0
-    :coal 0.8d0
-    :iron 1.2d0
-    :copper 1.2d0
-    :tin 1.5d0
-    :iron-b 5.0d0
-    :copper-b 5.0d0
-    :bronze 10.0d0
-    :steel 20.0d0
-    :steel-plate 35.0d0
-    :gear 8.0d0
-    :bellows 25.0d0
-    :rivet 2.0d0
-    :machine-part 120.0d0
-    :mythril 50.0d0
-    :ember 200.0d0)))
 
 (defun sell-value (kw)
   (gethash kw *sell-values* 0.0d0))

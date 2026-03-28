@@ -8,101 +8,75 @@
   (duration 5.0 :type single-float)
   (unlock-condition nil))
 
-(defparameter *recipes*
-  (list
-   (make-recipe-def
-    :id :iron-bar
-    :name "Smelt Iron Bar"
-    :inputs '(:iron 3.0d0 :coal 1.0d0)
-    :outputs '(:iron-b 1.0d0)
-    :duration 4.0)
+(defrecipes
+  (:iron-bar "Smelt Iron Bar"
+   :in (:iron 3.0d0 :coal 1.0d0)
+   :out (:iron-b 1.0d0)
+   :time 4.0)
 
-   (make-recipe-def
-    :id :copper-bar
-    :name "Smelt Copper Bar"
-    :inputs '(:copper 3.0d0 :coal 1.0d0)
-    :outputs '(:copper-b 1.0d0)
-    :duration 4.0)
+  (:copper-bar "Smelt Copper Bar"
+   :in (:copper 3.0d0 :coal 1.0d0)
+   :out (:copper-b 1.0d0)
+   :time 4.0)
 
-   (make-recipe-def
-    :id :bronze
-    :name "Alloy Bronze"
-    :inputs '(:copper-b 2.0d0 :tin 1.0d0)
-    :outputs '(:bronze 1.0d0)
-    :duration 8.0
-    :unlock-condition (lambda (s)
-                        (and (resource-has-p s :copper-b 1.0d0)
-                             (resource-has-p s :tin 1.0d0))))
+  (:bronze "Alloy Bronze"
+   :in (:copper-b 2.0d0 :tin 1.0d0)
+   :out (:bronze 1.0d0)
+   :time 8.0
+   :unlock (and (resource-has-p s :copper-b 1.0d0)
+                (resource-has-p s :tin 1.0d0)))
 
-   (make-recipe-def
-    :id :steel
-    :name "Forge Steel"
-    :inputs '(:iron-b 2.0d0 :coal 3.0d0)
-    :outputs '(:steel 1.0d0)
-    :duration 12.0
-    :unlock-condition (lambda (s) (upgrade-owned-p s :steel-alloy)))
+  (:steel "Forge Steel"
+   :in (:iron-b 2.0d0 :coal 3.0d0)
+   :out (:steel 1.0d0)
+   :time 12.0
+   :unlock (upgrade-owned-p s :steel-alloy))
 
-   (make-recipe-def
-    :id :gear
-    :name "Cast Gear"
-    :inputs '(:iron-b 1.0d0)
-    :outputs '(:gear 1.0d0)
-    :duration 3.0)
+  (:gear "Cast Gear"
+   :in (:iron-b 1.0d0)
+   :out (:gear 1.0d0)
+   :time 3.0)
 
-   (make-recipe-def
-    :id :bellows-part
-    :name "Craft Bellows"
-    :inputs '(:bronze 2.0d0 :coal 2.0d0)
-    :outputs '(:bellows 1.0d0)
-    :duration 10.0)
+  (:bellows-part "Craft Bellows"
+   :in (:bronze 2.0d0 :coal 2.0d0)
+   :out (:bellows 1.0d0)
+   :time 10.0)
 
-   (make-recipe-def
-    :id :machined-gears
-    :name "Machine Gears"
-    :inputs '(:steel 1.0d0)
-    :outputs '(:gear 3.0d0)
-    :duration 6.0
-    :unlock-condition (lambda (s) (>= (resource-ever s :steel) 1.0d0)))
+  (:machined-gears "Machine Gears"
+   :in (:steel 1.0d0)
+   :out (:gear 3.0d0)
+   :time 6.0
+   :unlock (>= (resource-ever s :steel) 1.0d0))
 
-   (make-recipe-def
-    :id :rivets
-    :name "Forge Rivets"
-    :inputs '(:iron-b 1.0d0 :coal 1.0d0)
-    :outputs '(:rivet 8.0d0)
-    :duration 6.0
-    :unlock-condition (lambda (s) (upgrade-owned-p s :metalworking)))
+  (:rivets "Forge Rivets"
+   :in (:iron-b 1.0d0 :coal 1.0d0)
+   :out (:rivet 8.0d0)
+   :time 6.0
+   :unlock (upgrade-owned-p s :metalworking))
 
-   (make-recipe-def
-    :id :steel-plate
-    :name "Hammer Steel Plate"
-    :inputs '(:steel 2.0d0 :coal 1.0d0)
-    :outputs '(:steel-plate 1.0d0)
-    :duration 14.0
-    :unlock-condition (lambda (s) (upgrade-owned-p s :metalworking)))
+  (:steel-plate "Hammer Steel Plate"
+   :in (:steel 2.0d0 :coal 1.0d0)
+   :out (:steel-plate 1.0d0)
+   :time 14.0
+   :unlock (upgrade-owned-p s :metalworking))
 
-   (make-recipe-def
-    :id :machine-part
-    :name "Assemble Machine Part"
-    :inputs '(:gear 2.0d0 :steel-plate 1.0d0 :rivet 10.0d0)
-    :outputs '(:machine-part 1.0d0)
-    :duration 22.0
-    :unlock-condition (lambda (s) (upgrade-owned-p s :industrial-tools)))
+  (:machine-part "Assemble Machine Part"
+   :in (:gear 2.0d0 :steel-plate 1.0d0 :rivet 10.0d0)
+   :out (:machine-part 1.0d0)
+   :time 22.0
+   :unlock (upgrade-owned-p s :industrial-tools))
 
-   (make-recipe-def
-    :id :coin-mint
-    :name "Mint Trade Tokens"
-    :inputs '(:bronze 1.0d0 :gear 1.0d0)
-    :outputs '(:coins 250.0d0)
-    :duration 10.0
-    :unlock-condition (lambda (s) (upgrade-owned-p s :coin-minting)))
+  (:coin-mint "Mint Trade Tokens"
+   :in (:bronze 1.0d0 :gear 1.0d0)
+   :out (:coins 250.0d0)
+   :time 10.0
+   :unlock (upgrade-owned-p s :coin-minting))
 
-   (make-recipe-def
-    :id :ember-crystal
-    :name "Condense Ember Crystal"
-    :inputs '(:mythril 10.0d0 :steel 5.0d0)
-    :outputs '(:ember 1.0d0)
-    :duration 30.0
-    :unlock-condition (lambda (s) (>= (building-count s :mythril-drill) 1)))))
+  (:ember-crystal "Condense Ember Crystal"
+   :in (:mythril 10.0d0 :steel 5.0d0)
+   :out (:ember 1.0d0)
+   :time 30.0
+   :unlock (>= (building-count s :mythril-drill) 1)))
 
 (defun find-recipe-def (id)
   (find id *recipes* :key #'recipe-def-id :test #'eq))

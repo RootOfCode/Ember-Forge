@@ -108,68 +108,47 @@ Computed to avoid buy→sell arbitrage even with discounts/sell bonuses."
             (add-notification! state (format nil "Shop: ~A" (shop-item-def-name def)) :color :gold)
             t))))))
 
-(defparameter *shop-items*
-  (list
-   (make-shop-item-def
-    :id :haggling
-    :name "Haggling Lessons"
-    :description "Shop prices -5% (stacks)."
-    :base-cost 120.0d0
-    :cost-scale 1.8d0
-    :max-level 10
-    :unlock (lambda (s) (>= (resource-ever s :coins) 120.0d0))
-    :apply (lambda (s lvl)
-             (declare (ignore lvl))
-             (setf (game-state-shop-discount s)
-                   (max 0.60d0 (* (game-state-shop-discount s) 0.95d0)))))
+(defshop-items
+  (:haggling "Haggling Lessons"
+   "Shop prices -5% (stacks)."
+   :base-cost 120.0d0
+   :scale 1.8d0
+   :max 10
+   :unlock (>= (resource-ever s :coins) 120.0d0)
+   :apply (setf (game-state-shop-discount s)
+                (max 0.60d0 (* (game-state-shop-discount s) 0.95d0))))
 
-   (make-shop-item-def
-    :id :salesmanship
-    :name "Salesmanship"
-    :description "Sell values +10% (stacks)."
-    :base-cost 150.0d0
-    :cost-scale 1.75d0
-    :max-level 12
-    :unlock (lambda (s) (>= (resource-ever s :coins) 150.0d0))
-    :apply (lambda (s lvl)
-             (declare (ignore lvl))
-             (setf (game-state-sell-mult s)
-                   (min 3.0d0 (* (game-state-sell-mult s) 1.10d0)))))
+  (:salesmanship "Salesmanship"
+   "Sell values +10% (stacks)."
+   :base-cost 150.0d0
+   :scale 1.75d0
+   :max 12
+   :unlock (>= (resource-ever s :coins) 150.0d0)
+   :apply (setf (game-state-sell-mult s)
+                (min 3.0d0 (* (game-state-sell-mult s) 1.10d0))))
 
-   (make-shop-item-def
-    :id :warehouse
-    :name "Warehouse Lease"
-    :description "All storage caps +15% (stacks)."
-    :base-cost 220.0d0
-    :cost-scale 1.9d0
-    :max-level 8
-    :unlock (lambda (s) (>= (resource-ever s :stone) 200.0d0))
-    :apply (lambda (s lvl)
-             (declare (ignore lvl))
-             (multiply-all-caps! s 1.15d0)))
+  (:warehouse "Warehouse Lease"
+   "All storage caps +15% (stacks)."
+   :base-cost 220.0d0
+   :scale 1.9d0
+   :max 8
+   :unlock (>= (resource-ever s :stone) 200.0d0)
+   :apply (multiply-all-caps! s 1.15d0))
 
-   (make-shop-item-def
-    :id :smelters-coupon
-    :name "Smelter's Coupon"
-    :description "Smelting +10% speed (stacks)."
-    :base-cost 400.0d0
-    :cost-scale 1.85d0
-    :max-level 10
-    :unlock (lambda (s) (>= (resource-ever s :iron-b) 5.0d0))
-    :apply (lambda (s lvl)
-             (declare (ignore lvl))
-             (setf (game-state-smelt-speed-mult s)
-                   (* (game-state-smelt-speed-mult s) 1.10d0))))
+  (:smelters-coupon "Smelter's Coupon"
+   "Smelting +10% speed (stacks)."
+   :base-cost 400.0d0
+   :scale 1.85d0
+   :max 10
+   :unlock (>= (resource-ever s :iron-b) 5.0d0)
+   :apply (setf (game-state-smelt-speed-mult s)
+                (* (game-state-smelt-speed-mult s) 1.10d0)))
 
-   (make-shop-item-def
-    :id :foreman-contract
-    :name "Foreman Contract"
-    :description "All building production +7% (stacks)."
-    :base-cost 650.0d0
-    :cost-scale 2.0d0
-    :max-level 10
-    :unlock (lambda (s) (>= (resource-ever s :bronze) 5.0d0))
-      :apply (lambda (s lvl)
-              (declare (ignore lvl))
-              (setf (game-state-prod-mult s)
-                   (* (game-state-prod-mult s) 1.07d0))))))
+  (:foreman-contract "Foreman Contract"
+   "All building production +7% (stacks)."
+   :base-cost 650.0d0
+   :scale 2.0d0
+   :max 10
+   :unlock (>= (resource-ever s :bronze) 5.0d0)
+   :apply (setf (game-state-prod-mult s)
+                (* (game-state-prod-mult s) 1.07d0))))

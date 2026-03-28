@@ -79,111 +79,66 @@
       ;; Back-compat for old saves / fresh starts.
       (setf (game-state-event-timer state) 90.0))
     (decf (game-state-event-timer state) (coerce dt 'single-float))
-    (when (<= (game-state-event-timer state) 0.0)
+  (when (<= (game-state-event-timer state) 0.0)
       (start-random-event! state)))
 
   state)
 
-(defparameter *events*
-  (list
-   (make-event-def
-    :id :cave-in
-    :name "Cave-In!"
-    :text "A tremor rocks the mine.\nDust fills the air and a tunnel collapses."
-    :choices (list
-              (%event-choice
-               "Shore it up (cost: 50 stone)"
-               (lambda (s)
-                 (resource-sub s :stone 50.0d0)
-                 (add-notification! s "You reinforce the supports. Safe again." :color :green-ok))
-               :can (lambda (s) (resource-has-p s :stone 50.0d0)))
-              (%event-choice
-               "Abandon it (-10% iron for 60s)"
-               (lambda (s)
-                 (setf (game-state-iron-penalty-timer s) 60.0)
-                 (add-notification! s "Iron production reduced temporarily." :color :warn)))))
+(defevents
+  (:cave-in "Cave-In!"
+   "A tremor rocks the mine.\nDust fills the air and a tunnel collapses."
+   (choice "Shore it up (cost: 50 stone)"
+     :can (resource-has-p s :stone 50.0d0)
+     (resource-sub s :stone 50.0d0)
+     (add-notification! s "You reinforce the supports. Safe again." :color :green-ok))
+   (choice "Abandon it (-10% iron for 60s)"
+     (setf (game-state-iron-penalty-timer s) 60.0)
+     (add-notification! s "Iron production reduced temporarily." :color :warn)))
 
-   (make-event-def
-    :id :wandering-merchant
-    :name "Wandering Merchant"
-    :text "A hooded trader offers rare goods.\nHe prefers bars and alloyed wares."
-    :choices (list
-              (%event-choice
-               "Trade 5 steel → 3 mythril"
-               (lambda (s)
-                 (resource-sub s :steel 5.0d0)
-                 (resource-add s :mythril 3.0d0)
-                 (add-notification! s "Trade complete." :color :green-ok))
-               :can (lambda (s) (resource-has-p s :steel 5.0d0)))
-              (%event-choice
-               "Trade 10 bronze → 500 coins"
-               (lambda (s)
-                 (resource-sub s :bronze 10.0d0)
-                 (resource-add s :coins 500.0d0)
-                 (add-notification! s "Coins clink into your pouch." :color :gold))
-               :can (lambda (s) (resource-has-p s :bronze 10.0d0)))
-              (%event-choice
-               "Send him away"
-               (lambda (s)
-                 (declare (ignore s))))))
+  (:wandering-merchant "Wandering Merchant"
+   "A hooded trader offers rare goods.\nHe prefers bars and alloyed wares."
+   (choice "Trade 5 steel → 3 mythril"
+     :can (resource-has-p s :steel 5.0d0)
+     (resource-sub s :steel 5.0d0)
+     (resource-add s :mythril 3.0d0)
+     (add-notification! s "Trade complete." :color :green-ok))
+   (choice "Trade 10 bronze → 500 coins"
+     :can (resource-has-p s :bronze 10.0d0)
+     (resource-sub s :bronze 10.0d0)
+     (resource-add s :coins 500.0d0)
+     (add-notification! s "Coins clink into your pouch." :color :gold))
+   (choice "Send him away"))
 
-   (make-event-def
-    :id :ember-pulse
-    :name "Ember Pulse"
-    :text "An ember crystal resonates.\nThe forge glows hotter for a moment."
-    :choices (list
-              (%event-choice
-               "Harness the pulse (2× smelt speed, 30s)"
-               (lambda (s)
-                 (setf (game-state-smelt-boost-timer s)
-                       (max 30.0 (game-state-smelt-boost-timer s)))
-                 (add-notification! s "Smelting speed surged!" :color :red)))
-              (%event-choice
-               "Let it pass"
-               (lambda (s)
-                 (declare (ignore s))))))
+  (:ember-pulse "Ember Pulse"
+   "An ember crystal resonates.\nThe forge glows hotter for a moment."
+   (choice "Harness the pulse (2× smelt speed, 30s)"
+     (setf (game-state-smelt-boost-timer s)
+           (max 30.0 (game-state-smelt-boost-timer s)))
+     (add-notification! s "Smelting speed surged!" :color :red))
+   (choice "Let it pass"))
 
-   (make-event-def
-    :id :scrap-windfall
-    :name "Scrap Windfall"
-    :text "A broken caravan leaves behind a pile of scrap.\nNot all of it is useless."
-    :choices (list
-              (%event-choice
-               "Salvage bars (+5 iron bars, +3 copper bars)"
-               (lambda (s)
-                 (resource-add s :iron-b 5.0d0)
-                 (resource-add s :copper-b 3.0d0)
-                 (add-notification! s "You salvage usable metal." :color :green-ok)))
-              (%event-choice
-               "Sell the scrap (+350 coins)"
-               (lambda (s)
-                 (resource-add s :coins 350.0d0)
-                 (add-notification! s "The market pays in full." :color :gold)))
-              (%event-choice
-               "Leave it"
-               (lambda (s)
-                 (declare (ignore s))))))
+  (:scrap-windfall "Scrap Windfall"
+   "A broken caravan leaves behind a pile of scrap.\nNot all of it is useless."
+   (choice "Salvage bars (+5 iron bars, +3 copper bars)"
+     (resource-add s :iron-b 5.0d0)
+     (resource-add s :copper-b 3.0d0)
+     (add-notification! s "You salvage usable metal." :color :green-ok))
+   (choice "Sell the scrap (+350 coins)"
+     (resource-add s :coins 350.0d0)
+     (add-notification! s "The market pays in full." :color :gold))
+   (choice "Leave it"))
 
-   (make-event-def
-    :id :ancient-cache
-    :name "Ancient Cache"
-    :text "You crack open a sealed coffer.\nInside: neatly packed components."
-    :choices (list
-              (%event-choice
-               "Take the gears (+12 gear)"
-               (lambda (s)
-                 (resource-add s :gear 12.0d0)
-                 (add-notification! s "Gears clatter into your pack." :color :green-ok)))
-              (%event-choice
-               "Take the plates (+4 steel plates)"
-               (lambda (s)
-                 (resource-add s :steel-plate 4.0d0)
-                 (add-notification! s "Heavy plates, solid workmanship." :color :green-ok)))
-              (%event-choice
-               "Take the rivets (+60 rivets)"
-               (lambda (s)
-                 (resource-add s :rivet 60.0d0)
-                 (add-notification! s "A tin of rivets. Useful." :color :green-ok)))))))
+  (:ancient-cache "Ancient Cache"
+   "You crack open a sealed coffer.\nInside: neatly packed components."
+   (choice "Take the gears (+12 gear)"
+     (resource-add s :gear 12.0d0)
+     (add-notification! s "Gears clatter into your pack." :color :green-ok))
+   (choice "Take the plates (+4 steel plates)"
+     (resource-add s :steel-plate 4.0d0)
+     (add-notification! s "Heavy plates, solid workmanship." :color :green-ok))
+   (choice "Take the rivets (+60 rivets)"
+     (resource-add s :rivet 60.0d0)
+     (add-notification! s "A tin of rivets. Useful." :color :green-ok))))
 
 (defstruct achievement-def
   (id :none :type keyword)
@@ -191,146 +146,102 @@
   (description "" :type string)
   (unlock nil)) ; NIL or (lambda (state) ...) -> boolean
 
-(defparameter *achievements*
-  (list
-   (make-achievement-def
-    :id :first-spark
-    :name "First Spark"
-    :description "Smelt your first bar."
-    :unlock (lambda (s)
-              (or (>= (resource-ever s :iron-b) 1.0d0)
-                  (>= (resource-ever s :copper-b) 1.0d0))))
-   (make-achievement-def
-    :id :iron-will
-    :name "Iron Will"
-    :description "Own 10 Iron Mines."
-    :unlock (lambda (s) (>= (building-count s :iron-mine) 10)))
-   (make-achievement-def
-    :id :the-alchemist
-    :name "The Alchemist"
-    :description "Discover the Bronze recipe."
-    :unlock (lambda (s) (>= (resource-ever s :bronze) 1.0d0)))
-   (make-achievement-def
-    :id :deep-echo
-    :name "Deep Echo"
-    :description "Extract your first Mythril."
-    :unlock (lambda (s) (>= (resource-ever s :mythril) 1.0d0)))
-   (make-achievement-def
-    :id :ember-awakened
-    :name "Ember Awakened"
-    :description "Condense your first Ember Crystal."
-    :unlock (lambda (s) (>= (resource-ever s :ember) 1.0d0)))
-   (make-achievement-def
-    :id :eternal-flame
-    :name "Eternal Flame"
-    :description "Ascend 5 times."
-    :unlock (lambda (s) (>= (game-state-ascensions s) 5)))
+(defachievements
+  (:first-spark "First Spark"
+   "Smelt your first bar."
+   (or (>= (resource-ever s :iron-b) 1.0d0)
+       (>= (resource-ever s :copper-b) 1.0d0)))
 
-   (make-achievement-def
-    :id :stone-stockpile
-    :name "Stone Stockpile"
-    :description "Produce 1,000 stone."
-    :unlock (lambda (s) (>= (resource-ever s :stone) 1000.0d0)))
+  (:iron-will "Iron Will"
+   "Own 10 Iron Mines."
+   (>= (building-count s :iron-mine) 10))
 
-   (make-achievement-def
-    :id :coal-baron
-    :name "Coal Baron"
-    :description "Produce 500 coal."
-    :unlock (lambda (s) (>= (resource-ever s :coal) 500.0d0)))
+  (:the-alchemist "The Alchemist"
+   "Discover the Bronze recipe."
+   (>= (resource-ever s :bronze) 1.0d0))
 
-   (make-achievement-def
-    :id :pickaxe-army
-    :name "Pickaxe Army"
-    :description "Own 25 Pickaxes."
-    :unlock (lambda (s) (>= (building-count s :pickaxe) 25)))
+  (:deep-echo "Deep Echo"
+   "Extract your first Mythril."
+   (>= (resource-ever s :mythril) 1.0d0))
 
-   (make-achievement-def
-    :id :furnace-fleet
-    :name "Furnace Fleet"
-    :description "Own 3 Auto-Furnaces."
-    :unlock (lambda (s) (>= (building-count s :furnace) 3)))
+  (:ember-awakened "Ember Awakened"
+   "Condense your first Ember Crystal."
+   (>= (resource-ever s :ember) 1.0d0))
 
-   (make-achievement-def
-    :id :bellows-business
-    :name "Bellows Business"
-    :description "Own 2 Bellows Workshops."
-    :unlock (lambda (s) (>= (building-count s :bellows-shop) 2)))
+  (:eternal-flame "Eternal Flame"
+   "Ascend 5 times."
+   (>= (game-state-ascensions s) 5))
 
-   (make-achievement-def
-    :id :merchant-prince
-    :name "Merchant Prince"
-    :description "Produce 10,000 coins."
-    :unlock (lambda (s) (>= (resource-ever s :coins) 10000.0d0)))
+  (:stone-stockpile "Stone Stockpile"
+   "Produce 1,000 stone."
+   (>= (resource-ever s :stone) 1000.0d0))
 
-   (make-achievement-def
-    :id :gearhead
-    :name "Gearhead"
-    :description "Produce 50 gears."
-    :unlock (lambda (s) (>= (resource-ever s :gear) 50.0d0)))
+  (:coal-baron "Coal Baron"
+   "Produce 500 coal."
+   (>= (resource-ever s :coal) 500.0d0))
 
-   (make-achievement-def
-    :id :airflow-artisan
-    :name "Airflow Artisan"
-    :description "Craft 10 bellows."
-    :unlock (lambda (s) (>= (resource-ever s :bellows) 10.0d0)))
+  (:pickaxe-army "Pickaxe Army"
+   "Own 25 Pickaxes."
+   (>= (building-count s :pickaxe) 25))
 
-   (make-achievement-def
-    :id :bronze-age
-    :name "Bronze Age"
-    :description "Produce 25 bronze bars."
-    :unlock (lambda (s) (>= (resource-ever s :bronze) 25.0d0)))
+  (:furnace-fleet "Furnace Fleet"
+   "Own 3 Auto-Furnaces."
+   (>= (building-count s :furnace) 3))
 
-   (make-achievement-def
-    :id :steelworks
-    :name "Steelworks"
-    :description "Produce 25 steel bars."
-    :unlock (lambda (s) (>= (resource-ever s :steel) 25.0d0)))
+  (:bellows-business "Bellows Business"
+   "Own 2 Bellows Workshops."
+   (>= (building-count s :bellows-shop) 2))
 
-   (make-achievement-def
-    :id :plate-press
-    :name "Plate Press"
-    :description "Hammer 10 steel plates."
-    :unlock (lambda (s) (>= (resource-ever s :steel-plate) 10.0d0)))
+  (:merchant-prince "Merchant Prince"
+   "Produce 10,000 coins."
+   (>= (resource-ever s :coins) 10000.0d0))
 
-   (make-achievement-def
-    :id :rivet-rain
-    :name "Rivet Rain"
-    :description "Forge 200 rivets."
-    :unlock (lambda (s) (>= (resource-ever s :rivet) 200.0d0)))
+  (:gearhead "Gearhead"
+   "Produce 50 gears."
+   (>= (resource-ever s :gear) 50.0d0))
 
-   (make-achievement-def
-    :id :parts-bin
-    :name "Parts Bin"
-    :description "Assemble 3 machine parts."
-    :unlock (lambda (s) (>= (resource-ever s :machine-part) 3.0d0)))
+  (:airflow-artisan "Airflow Artisan"
+   "Craft 10 bellows."
+   (>= (resource-ever s :bellows) 10.0d0))
 
-   (make-achievement-def
-    :id :shopaholic
-    :name "Shopaholic"
-    :description "Buy 5 shop perks total."
-    :unlock (lambda (s)
-              (let ((sum 0))
-                (maphash (lambda (k v) (declare (ignore k)) (incf sum v))
-                         (game-state-shop-purchases s))
-                (>= sum 5))))
+  (:bronze-age "Bronze Age"
+   "Produce 25 bronze bars."
+   (>= (resource-ever s :bronze) 25.0d0))
 
-   (make-achievement-def
-    :id :queue-master
-    :name "Queue Master"
-    :description "Fill 8 smelt slots."
-    :unlock (lambda (s) (>= (length (game-state-smelt-queue s)) 8)))
+  (:steelworks "Steelworks"
+   "Produce 25 steel bars."
+   (>= (resource-ever s :steel) 25.0d0))
 
-   (make-achievement-def
-    :id :tinkerer
-    :name "Tinkerer"
-    :description "Buy 10 upgrades."
-    :unlock (lambda (s) (>= (length (game-state-upgrades s)) 10)))
+  (:plate-press "Plate Press"
+   "Hammer 10 steel plates."
+   (>= (resource-ever s :steel-plate) 10.0d0))
 
-   (make-achievement-def
-    :id :industrial-revolution
-    :name "Industrial Revolution"
-    :description "Buy Assembly Lines."
-    :unlock (lambda (s) (upgrade-owned-p s :assembly-lines)))))
+  (:rivet-rain "Rivet Rain"
+   "Forge 200 rivets."
+   (>= (resource-ever s :rivet) 200.0d0))
+
+  (:parts-bin "Parts Bin"
+   "Assemble 3 machine parts."
+   (>= (resource-ever s :machine-part) 3.0d0))
+
+  (:shopaholic "Shopaholic"
+   "Buy 5 shop perks total."
+   (let ((sum 0))
+     (maphash (lambda (k v) (declare (ignore k)) (incf sum v))
+              (game-state-shop-purchases s))
+     (>= sum 5)))
+
+  (:queue-master "Queue Master"
+   "Fill 8 smelt slots."
+   (>= (length (game-state-smelt-queue s)) 8))
+
+  (:tinkerer "Tinkerer"
+   "Buy 10 upgrades."
+   (>= (length (game-state-upgrades s)) 10))
+
+  (:industrial-revolution "Industrial Revolution"
+   "Buy Assembly Lines."
+   (upgrade-owned-p s :assembly-lines)))
 
 (defun achievement-unlocked-p (state id)
   (member id (game-state-achievements state)))

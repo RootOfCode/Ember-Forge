@@ -7,40 +7,29 @@
   (cost 0.0d0 :type double-float) ; essence cost
   (effect nil))
 
-(defparameter *eternal-upgrades*
-  (list
-   (make-eternal-upgrade-def
-    :id :eternal-miner
-    :name "Eternal Miner"
-    :description "Start each run with 1 free Pickaxe."
-    :cost 5.0d0
-    :effect (lambda (s)
-              (apply-eternal-start-bonuses! s)))
-   (make-eternal-upgrade-def
-    :id :ember-memory
-    :name "Ember Memory"
-    :description "Keep 10% of coins on Ascend."
-    :cost 10.0d0
-    :effect (lambda (s) (declare (ignore s))))
-   (make-eternal-upgrade-def
-    :id :forge-mastery
-    :name "Forge Mastery"
-    :description "All smelting is 25% faster permanently."
-    :cost 25.0d0
-    :effect (lambda (s) (declare (ignore s))))
-   (make-eternal-upgrade-def
-    :id :eternal-ancient-veins
-    :name "Ancient Veins"
-    :description "+50% ore production permanently."
-    :cost 50.0d0
-    :effect (lambda (s) (recompute-production! s)))
-   (make-eternal-upgrade-def
-    :id :twin-furnace
-    :name "Twin Furnaces"
-    :description "Start each run with an Auto-Furnace built."
-    :cost 100.0d0
-    :effect (lambda (s)
-              (apply-eternal-start-bonuses! s)))))
+(defeternal-upgrades
+  (:eternal-miner "Eternal Miner"
+   "Start each run with 1 free Pickaxe."
+   :cost 5.0d0
+   :effect (apply-eternal-start-bonuses! s))
+
+  (:ember-memory "Ember Memory"
+   "Keep 10% of coins on Ascend."
+   :cost 10.0d0)
+
+  (:forge-mastery "Forge Mastery"
+   "All smelting is 25% faster permanently."
+   :cost 25.0d0)
+
+  (:eternal-ancient-veins "Ancient Veins"
+   "+50% ore production permanently."
+   :cost 50.0d0
+   :effect (recompute-production! s))
+
+  (:twin-furnace "Twin Furnaces"
+   "Start each run with an Auto-Furnace built."
+   :cost 100.0d0
+   :effect (apply-eternal-start-bonuses! s)))
 
 (defun find-eternal-upgrade-def (id)
   (find id *eternal-upgrades* :key #'eternal-upgrade-def-id :test #'eq))
