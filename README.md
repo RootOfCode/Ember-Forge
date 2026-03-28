@@ -206,6 +206,8 @@ Events fire roughly every 5–15 minutes and present a modal choice:
 ember-forge/
 ├── ember-forge.asd              # ASDF system definition
 ├── src/
+│   ├── package.lisp             # Package definition
+│   ├── dsl.lisp                 # Macro DSL for game content tables
 │   ├── main.lisp                # Entry point, game loop (60 fps)
 │   ├── state.lisp               # Global game-state struct
 │   ├── resources.lisp           # Resource definitions & registry
@@ -244,6 +246,39 @@ ember-forge/
 ├── build.bat                    # Windows build script
 ├── run.sh                       # Run from source (Linux)
 └── logo.png
+```
+
+---
+
+## Content DSL (Macros)
+
+Most game content is defined declaratively via macros in `src/dsl.lisp` (and used in the `src/*` definition files). This keeps the “data tables” readable while still producing the same runtime structs/hash-tables.
+
+### Macros
+
+- `defresources` → `*resource-defs*` + `*sell-values*`
+- `defbuildings` → `*buildings*`
+- `defrecipes` → `*recipes*`
+- `defupgrades` → `*upgrades*`
+- `defshop-items` → `*shop-items*`
+- `defeternal-upgrades` → `*eternal-upgrades*`
+- `defevents` + `(choice ...)` → `*events*`
+- `defachievements` → `*achievements*`
+
+### Conventions
+
+- `:unlock` / `:effect` / `:apply` are written as plain expressions; the DSL wraps them into lambdas.
+  - State is `s` (and shop `:apply` also receives `lvl`).
+- Plists like costs/inputs/outputs/production are written **unquoted** (the DSL quotes them).
+
+Example:
+
+```lisp
+(defbuildings
+  (:iron-mine "Iron Mine" "Extracts iron ore from deep veins."
+   :cost (:coins 200.0d0 :stone 100.0d0)
+   :produces (:iron 0.2d0)
+   :unlock (>= (resource-ever s :stone) 50.0d0)))
 ```
 
 ---

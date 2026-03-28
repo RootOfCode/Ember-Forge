@@ -1,7 +1,7 @@
 (asdf:defsystem #:ember-forge
   :author "Bruno"
   :description "Ember Forge — idle/incremental game in Common Lisp + SDL2"
-  :version "1.0.0"
+  :version "1.5.0"
   :depends-on (#:alexandria #:sdl2 #:sdl2-ttf #:sdl2-image #:uiop)
   :serial t
   :components
@@ -9,6 +9,7 @@
     :serial t
     :components
     ((:file "package")
+     (:file "dsl")
      (:file "state")
      (:module "util"
       :serial t
