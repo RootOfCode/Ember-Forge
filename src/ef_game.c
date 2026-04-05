@@ -113,6 +113,7 @@ void tick_game(GameState *state, float dt_seconds) {
   tick_crucibles(state, dt_seconds);
   tick_events(state, dt_seconds);
   notifs_tick(state, dt_seconds);
+  milestone_popups_tick(state, dt_seconds);
 
   if ((state->tick % 30u) == 0u) {
     maybe_unlock_produced_resources(state);

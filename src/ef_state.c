@@ -118,6 +118,39 @@ void notifs_tick(GameState *state, float dt_seconds) {
   list->len = out_len;
 }
 
+/* ── Milestone popup queue ───────────────────────────────────────────────── */
+
+void milestone_popups_add(GameState *state, const char *text, float duration,
+                          PaletteColor color) {
+  if (!state || !text || text[0] == '\0') return;
+  MilestoneQueue *q = &state->milestone_popups;
+  /* If full, drop the oldest entry to make room */
+  if (q->len >= MILESTONE_QUEUE_MAX)
+    q->len = MILESTONE_QUEUE_MAX - 1;
+  /* Shift existing entries down one slot (newest at index 0) */
+  if (q->len > 0)
+    memmove(&q->items[1], &q->items[0], q->len * sizeof(q->items[0]));
+  MilestonePopup *p = &q->items[0];
+  memset(p, 0, sizeof(*p));
+  strncpy(p->text, text, sizeof(p->text) - 1);
+  p->timer    = duration > 0.0f ? duration : 6.0f;
+  p->duration = p->timer;
+  p->color    = color;
+  q->len     += 1;
+}
+
+void milestone_popups_tick(GameState *state, float dt_seconds) {
+  if (!state) return;
+  MilestoneQueue *q = &state->milestone_popups;
+  size_t out = 0;
+  for (size_t i = 0; i < q->len; ++i) {
+    q->items[i].timer -= dt_seconds;
+    if (q->items[i].timer > 0.0f)
+      q->items[out++] = q->items[i];
+  }
+  q->len = out;
+}
+
 float manual_job_progress(const ManualJob *job) {
   if (!job || !job->active) {
     return 0.0f;
@@ -172,6 +205,7 @@ void game_state_reset_transient(GameState *state) {
   state->manual_gather.active = false;
   state->active_event = EVENT_NONE;
   notifs_clear(&state->notifications);
+  memset(&state->milestone_popups, 0, sizeof(state->milestone_popups));
 }
 
 void game_state_hard_reset(GameState *state) {
@@ -229,6 +263,7 @@ void game_state_hard_reset(GameState *state) {
 
   state->active_panel = PANEL_FORGE;
   notifs_clear(&state->notifications);
+  memset(&state->milestone_popups, 0, sizeof(state->milestone_popups));
   state->smelt_slots_extra = 0;
   state->crucibles_purchased = 0;
   memset(state->crucibles, 0, sizeof(state->crucibles));

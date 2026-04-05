@@ -78,9 +78,10 @@ double resource_add(GameState *state, ResourceId r, double delta) {
     double after  = clamp_double(before + delta, 0.0, cap);
     state->resources[r] = after;
     if (after > 0.0) resource_unlock(state, r);
-    double inc = after - before;
-    if (inc > 0.0) {
-        state->ever_produced[r] += inc;
+    /* Track ever_produced from the raw positive delta so milestones fire
+       even when the resource bucket is full and no actual units are added. */
+    if (delta > 0.0) {
+        state->ever_produced[r] += delta;
         milestones_check(state, r);
     }
     return after;

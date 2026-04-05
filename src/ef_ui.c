@@ -53,6 +53,14 @@ typedef struct UiContext {
   bool text_input_active;
   int  text_input_slot;    /* 1-3: which slot is being renamed */
   char text_input_buf[32];
+  /* admin mode */
+  bool admin_login_open;      /* login dialog visible */
+  bool admin_authenticated;   /* logged in this session */
+  bool admin_panel_open;      /* cheat dropdown open */
+  int  admin_active_field;    /* 0=none, 1=username, 2=password */
+  char admin_username_buf[64];
+  char admin_password_buf[64];
+  char admin_error_msg[64];
 } UiContext;
 
 static UiContext ui;
@@ -72,7 +80,22 @@ static void format_timestamp(char *out, size_t n, uint64_t ts) {
 /* ── text-input API ───────────────────────────────────────────────────────── */
 
 void ui_feed_text(const char *text) {
-  if (!ui.text_input_active || !text) return;
+  if (!text) return;
+  if (ui.admin_active_field == 1) {
+    size_t cur = strlen(ui.admin_username_buf);
+    for (const char *p = text; *p && cur < 63; ++p, ++cur)
+      ui.admin_username_buf[cur] = *p;
+    ui.admin_username_buf[cur] = '\0';
+    return;
+  }
+  if (ui.admin_active_field == 2) {
+    size_t cur = strlen(ui.admin_password_buf);
+    for (const char *p = text; *p && cur < 63; ++p, ++cur)
+      ui.admin_password_buf[cur] = *p;
+    ui.admin_password_buf[cur] = '\0';
+    return;
+  }
+  if (!ui.text_input_active) return;
   size_t cur = strlen(ui.text_input_buf);
   for (const char *p = text; *p && cur < 31; ++p, ++cur)
     ui.text_input_buf[cur] = *p;
@@ -80,16 +103,44 @@ void ui_feed_text(const char *text) {
 }
 
 void ui_feed_backspace(void) {
+  if (ui.admin_active_field == 1) {
+    size_t n = strlen(ui.admin_username_buf);
+    if (n > 0) ui.admin_username_buf[n - 1] = '\0';
+    return;
+  }
+  if (ui.admin_active_field == 2) {
+    size_t n = strlen(ui.admin_password_buf);
+    if (n > 0) ui.admin_password_buf[n - 1] = '\0';
+    return;
+  }
   if (!ui.text_input_active) return;
   size_t n = strlen(ui.text_input_buf);
   if (n > 0) ui.text_input_buf[n - 1] = '\0';
 }
 
 bool ui_text_input_active(void) {
-  return ui.text_input_active;
+  return ui.text_input_active || (ui.admin_active_field != 0);
 }
 
 void ui_commit_text_input(GameState *state) {
+  /* Admin field: Enter on username moves to password; Enter on password tries login */
+  if (ui.admin_active_field == 1) {
+    ui.admin_active_field = 2;
+    return;
+  }
+  if (ui.admin_active_field == 2) {
+    if (strcmp(ui.admin_username_buf, "rootofcode") == 0 &&
+        strcmp(ui.admin_password_buf, "24012004") == 0) {
+      ui.admin_authenticated = true;
+      ui.admin_login_open    = false;
+      ui.admin_active_field  = 0;
+      SDL_StopTextInput();
+    } else {
+      (void)snprintf(ui.admin_error_msg, sizeof(ui.admin_error_msg), "Invalid credentials.");
+      ui.admin_password_buf[0] = '\0';
+    }
+    return;
+  }
   if (!ui.text_input_active || !state) return;
   int s = ui.text_input_slot;
   if (s >= 1 && s <= 3) {
@@ -103,6 +154,15 @@ void ui_commit_text_input(GameState *state) {
 }
 
 void ui_cancel_text_input(void) {
+  if (ui.admin_active_field != 0) {
+    ui.admin_active_field    = 0;
+    ui.admin_login_open      = false;
+    ui.admin_username_buf[0] = '\0';
+    ui.admin_password_buf[0] = '\0';
+    ui.admin_error_msg[0]    = '\0';
+    SDL_StopTextInput();
+    return;
+  }
   if (ui.text_input_active) SDL_StopTextInput();
   ui.text_input_active = false;
   ui.text_input_slot   = 0;
@@ -586,6 +646,70 @@ static void render_notifications(SDL_Renderer *renderer, TTF_Font *font, const G
   draw_label(renderer, font, msg->text, x + 10, y + 6, msg->color, ALIGN_LEFT);
 }
 
+/* ── Milestone popup cards ───────────────────────────────────────────────────
+ * Renders milestone notifications as prominent floating cards in the
+ * bottom-right corner, stacked upward above the notification bar.
+ * Each card has a coloured left-accent strip and a star-prefixed message.
+ * Up to MILESTONE_QUEUE_MAX cards are visible simultaneously.
+ */
+static void render_milestone_popups(SDL_Renderer *renderer, TTF_Font *font,
+                                    const GameState *state) {
+  if (!state || state->milestone_popups.len == 0) return;
+
+  static const int CARD_W      = 330;
+  static const int CARD_H      = 56;
+  static const int CARD_GAP    = 6;
+  static const int ACCENT_W    = 5;
+  static const int MARGIN_R    = 12;
+  static const int MARGIN_B    = 32; /* sits just above the 28-px notif bar */
+
+  int card_x = WINDOW_WIDTH - CARD_W - MARGIN_R;
+
+  size_t visible = state->milestone_popups.len;
+  if (visible > (size_t)MILESTONE_QUEUE_MAX) visible = (size_t)MILESTONE_QUEUE_MAX;
+
+  /* Render oldest (highest index) first so newest card ends up on top */
+  for (int i = (int)visible - 1; i >= 0; --i) {
+    const MilestonePopup *p = &state->milestone_popups.items[i];
+
+    /* Stack cards upward: card 0 (newest) is closest to the notif bar */
+    int slot  = (int)visible - 1 - i; /* 0 = bottom slot */
+    int card_y = WINDOW_HEIGHT - MARGIN_B - (slot + 1) * (CARD_H + CARD_GAP);
+
+    /* ── Card background ── */
+    draw_rect(renderer, card_x, card_y, CARD_W, CARD_H,
+              (ColorRGBA){22, 18, 14, 245},
+              true, palette_rgba(PAL_BTN_HOVER));
+
+    /* ── Coloured left accent bar ── */
+    ColorRGBA accent = palette_rgba(p->color);
+    draw_rect(renderer, card_x, card_y, ACCENT_W, CARD_H,
+              accent, false, accent);
+
+    /* ── "MILESTONE" header label (small, dimmed) ── */
+    draw_label(renderer, font, "MILESTONE",
+               card_x + ACCENT_W + 10, card_y + 6,
+               PAL_TEXT_DIM, ALIGN_LEFT);
+
+    /* ── Main message line ── */
+    draw_label(renderer, font, p->text,
+               card_x + ACCENT_W + 10, card_y + 24,
+               p->color, ALIGN_LEFT);
+
+    /* ── Timer bar at the bottom of the card ── */
+    float life = (p->duration > 0.0f) ? (p->timer / p->duration) : 0.0f;
+    if (life < 0.0f) life = 0.0f;
+    if (life > 1.0f) life = 1.0f;
+    int bar_w = (int)((CARD_W - 2) * life);
+    if (bar_w > 0) {
+      ColorRGBA bar_col = palette_rgba(p->color);
+      bar_col.a = 120;
+      draw_rect(renderer, card_x + 1, card_y + CARD_H - 3, bar_w, 2,
+                bar_col, false, bar_col);
+    }
+  }
+}
+
 static void render_top_bar(SDL_Renderer *renderer, const GameState *state, TTF_Font *font) {
   draw_rect_palette(renderer, 0, 0, WINDOW_WIDTH, 32, PAL_BG_TOP, true, PAL_BTN_HOVER);
   draw_label(renderer, font, "Ember Forge", 12, 7, PAL_TEXT, ALIGN_LEFT);
@@ -859,8 +983,18 @@ static void render_panel_forge(SDL_Renderer *renderer, GameState *state, TTF_Fon
     }
   }
 
+  /* Buildings start below whichever of the two queue columns is taller.
+   * smelt queue: shown rows of (row_h + 6) each, plus the 18-px label above q_y.
+   * Crucibles: crucibles_purchased rows of (c_row + 10), same label offset.
+   * Add 24 px padding between the queues and the buildings header. */
+  int smelt_bottom = q_y + shown * (row_h + 6);
+  int cruc_rows    = state->crucibles_purchased < MAX_CRUCIBLES
+                       ? state->crucibles_purchased : MAX_CRUCIBLES;
+  int cruc_bottom  = c_y + (cruc_rows > 0 ? cruc_rows * (c_row + 10) : (row_h + 6));
+  int queues_bottom = smelt_bottom > cruc_bottom ? smelt_bottom : cruc_bottom;
+
   int b_x = x + 24;
-  int b_y = y + 340;
+  int b_y = queues_bottom + 24;
   int b_w = w - 48;
   int building_row_h = 34;
   int shown_rows = 0;
@@ -1280,67 +1414,83 @@ static void render_panel_shop(SDL_Renderer *renderer, GameState *state, TTF_Font
   ResourceId res_list[RES_COUNT];
   size_t res_count = build_shop_resource_list(state, res_list, EF_ARRAY_COUNT(res_list));
 
-  int row_h = 34;
+  /* Two-line rows: line 1 = name + sell value, line 2 = amount/cap + buy cost.
+   * Buttons span the full row height on the right.  All three text regions
+   * are kept in non-overlapping horizontal lanes:
+   *   [icon | name .............. sell c]  [Sell][Buy]
+   *   [     | amt / cap ......... buy  c]
+   */
+  int row_h       = 40;
   int btn_trade_w = 70;
-  int btn_trade_h = row_h - 10;
+  int btn_trade_h = row_h - 4;   /* buttons span full row height */
   double buy_mult = shop_buy_mult(state);
 
   for (size_t i = 0; i < res_count; ++i) {
-    int row_y = market_y + (int)i * (row_h + 6);
+    int row_y = market_y + (int)i * (row_h + 4);
     if (row_y + row_h >= market_y + market_h) {
       break;
     }
 
     ResourceId res = res_list[i];
-    double amt = resource_amount(state, res);
-    double cap = resource_cap(state, res);
+    double amt  = resource_amount(state, res);
+    double cap  = resource_cap(state, res);
     double sell = sell_value(res);
 
-    double qty = shop_trade_qty;
+    double qty        = shop_trade_qty;
     double sell_coins = sell * qty * state->sell_mult;
-    double buy_coins = sell * qty * buy_mult * state->shop_discount;
+    double buy_coins  = sell * qty * buy_mult * state->shop_discount;
 
     bool can_sell_q = can_sell(state, res, qty);
-    bool can_buy_q = shop_can_buy_resource(state, res, qty);
+    bool can_buy_q  = shop_can_buy_resource(state, res, qty);
 
-    int row_x = market_x;
-    int row_w = market_w;
-    int btn_buy_x = row_x + row_w - btn_trade_w - 8;
-    int btn_sell_x = row_x + row_w - 2 * (btn_trade_w + 8);
-    int text_right = btn_sell_x - 10;
+    int row_x     = market_x;
+    int row_w     = market_w;
+    int btn_buy_x  = row_x + row_w - btn_trade_w - 6;
+    int btn_sell_x = row_x + row_w - 2 * (btn_trade_w + 6) - 6;
+    /* Right edge for price labels — sits flush left of the Sell button */
+    int price_right = btn_sell_x - 8;
+    /* Name / amount text may run up to the left edge of the price labels */
+    int text_max_w  = price_right - (row_x + 30) - 8;
 
     draw_rect_palette(renderer, row_x, row_y, row_w, row_h, PAL_BG_SIDEBAR, true, PAL_BTN_HOVER);
-    draw_resource_icon(renderer, res, row_x + 10, row_y + 11);
-    draw_label(renderer, font, resource_name(res), row_x + 30, row_y + 6, PAL_TEXT, ALIGN_LEFT);
 
-    char amt_buf[64];
-    char cap_buf[64];
+    /* Icon centred vertically in the row */
+    draw_resource_icon(renderer, res, row_x + 10, row_y + (row_h - 12) / 2);
+
+    /* Line 1: resource name (left) */
+    draw_label_fit(renderer, font, resource_name(res),
+                   row_x + 30, row_y + 5, PAL_TEXT, text_max_w, ALIGN_LEFT);
+
+    /* Line 2: amount / cap (left, dimmed) */
+    char amt_buf[64], cap_buf[64], amount_line[192];
     fmt_number(amt_buf, sizeof(amt_buf), amt);
     fmt_number(cap_buf, sizeof(cap_buf), cap);
-    char amount_line[192];
     (void)snprintf(amount_line, sizeof(amount_line), "%s / %s", amt_buf, cap_buf);
-    draw_label(renderer, font, amount_line, row_x + 220, row_y + 6, PAL_TEXT_DIM, ALIGN_LEFT);
+    draw_label_fit(renderer, font, amount_line,
+                   row_x + 30, row_y + 22, PAL_TEXT_DIM, text_max_w, ALIGN_LEFT);
 
-    char sell_buf[64];
-    char buy_buf[64];
+    /* Line 1 right: sell value */
+    char sell_buf[64], sell_line[96];
     fmt_number(sell_buf, sizeof(sell_buf), sell_coins);
-    fmt_number(buy_buf, sizeof(buy_buf), buy_coins);
-    char sell_line[96];
-    char buy_line[96];
-    (void)snprintf(sell_line, sizeof(sell_line), "Sell: +%s c", sell_buf);
-    (void)snprintf(buy_line, sizeof(buy_line), "Buy: -%s c", buy_buf);
-    draw_label(renderer, font, sell_line, text_right, row_y + 6, PAL_TEXT_DIM, ALIGN_RIGHT);
-    draw_label(renderer, font, buy_line, text_right, row_y + 20, PAL_TEXT_DIM, ALIGN_RIGHT);
+    (void)snprintf(sell_line, sizeof(sell_line), "+%s c", sell_buf);
+    draw_label(renderer, font, sell_line, price_right, row_y + 5, PAL_GREEN_OK, ALIGN_RIGHT);
 
+    /* Line 2 right: buy cost */
+    char buy_buf[64], buy_line[96];
+    fmt_number(buy_buf, sizeof(buy_buf), buy_coins);
+    (void)snprintf(buy_line, sizeof(buy_line), "-%s c", buy_buf);
+    draw_label(renderer, font, buy_line, price_right, row_y + 22, PAL_RUST, ALIGN_RIGHT);
+
+    /* Buttons — span full row height */
     char tooltip_sell[96];
     (void)snprintf(tooltip_sell, sizeof(tooltip_sell), "Sell %s ×%d.", resource_name(res), (int)qty);
-    if (draw_button(renderer, font, "Sell", btn_sell_x, row_y + 5, btn_trade_w, btn_trade_h, can_sell_q, PAL_BTN_NORMAL, tooltip_sell)) {
+    if (draw_button(renderer, font, "Sell", btn_sell_x, row_y + 2, btn_trade_w, btn_trade_h, can_sell_q, PAL_BTN_NORMAL, tooltip_sell)) {
       (void)sell_resource(state, res, qty);
     }
 
     char tooltip_buy[96];
     (void)snprintf(tooltip_buy, sizeof(tooltip_buy), "Buy %s ×%d.", resource_name(res), (int)qty);
-    if (draw_button(renderer, font, "Buy", btn_buy_x, row_y + 5, btn_trade_w, btn_trade_h, can_buy_q, PAL_BTN_NORMAL, tooltip_buy)) {
+    if (draw_button(renderer, font, "Buy", btn_buy_x, row_y + 2, btn_trade_w, btn_trade_h, can_buy_q, PAL_BTN_NORMAL, tooltip_buy)) {
       (void)buy_resource(state, res, qty);
     }
   }
@@ -1376,6 +1526,9 @@ static void render_panel_shop(SDL_Renderer *renderer, GameState *state, TTF_Font
         break;
       case SHOP_FOREMAN_CONTRACT:
         unlocked = resource_ever(state, RES_BRONZE) >= 5.0;
+        break;
+      case SHOP_DEDICATED_CRUCIBLE:
+        unlocked = resource_ever(state, RES_IRON_BAR) >= 10.0;
         break;
       default:
         unlocked = false;
@@ -1434,6 +1587,13 @@ static void render_panel_shop(SDL_Renderer *renderer, GameState *state, TTF_Font
         scale = 2.0;
         max = 10;
         break;
+      case SHOP_DEDICATED_CRUCIBLE:
+        name = "Dedicated Crucible";
+        desc = "Unlock a crucible slot (auto-repeats one recipe). Up to 4.";
+        base_cost = 800.0;
+        scale = 3.5;
+        max = MAX_CRUCIBLES;
+        break;
       default:
         break;
     }
@@ -1462,15 +1622,33 @@ static void render_panel_shop(SDL_Renderer *renderer, GameState *state, TTF_Font
     }
 
     draw_rect_palette(renderer, perks_x, row_y, perks_w, perk_row_h, PAL_BG_SIDEBAR, true, PAL_BTN_HOVER);
+    /* Title (line 1) — full available width, no cost competing on this line */
     draw_label_fit(renderer, font, title, text_x, row_y + 6, PAL_TEXT, text_right - text_x, ALIGN_LEFT);
-    draw_label_fit(renderer, font, desc, text_x, row_y + 28, PAL_TEXT_DIM, text_right - text_x, ALIGN_LEFT);
-
+    /* Desc (line 2, left portion) | Cost (line 2, right-aligned) */
     if (!maxed) {
       char cost_buf[64];
       fmt_number(cost_buf, sizeof(cost_buf), cost);
       char cost_line[96];
-      (void)snprintf(cost_line, sizeof(cost_line), "Cost: %s c", cost_buf);
-      draw_label(renderer, font, cost_line, text_right, row_y + 6, PAL_TEXT_DIM, ALIGN_RIGHT);
+      (void)snprintf(cost_line, sizeof(cost_line), "%s c", cost_buf);
+      draw_label(renderer, font, cost_line, text_right, row_y + 28, PAL_GOLD, ALIGN_RIGHT);
+      /* Leave the right ~35 % for the cost label so desc never overlaps it */
+      int desc_max_w = (text_right - text_x) * 62 / 100;
+      draw_label_fit(renderer, font, desc, text_x, row_y + 28, PAL_TEXT_DIM, desc_max_w, ALIGN_LEFT);
+    } else {
+      draw_label_fit(renderer, font, desc, text_x, row_y + 28, PAL_TEXT_DIM, text_right - text_x, ALIGN_LEFT);
+    }
+
+    /* Hover tooltip — shows full untruncated description + cost */
+    if (!ui.input_blocked && rect_hovered(perks_x, row_y, perks_w, perk_row_h)) {
+      char tip[512];
+      if (!maxed) {
+        char cost_buf[64];
+        fmt_number(cost_buf, sizeof(cost_buf), cost);
+        (void)snprintf(tip, sizeof(tip), "%s\n%s\nNext level: %s coins", title, desc, cost_buf);
+      } else {
+        (void)snprintf(tip, sizeof(tip), "%s\n%s\nFully upgraded.", title, desc);
+      }
+      ui_set_tooltip(tip, ui.mouse_x, ui.mouse_y, TOOLTIP_MOUSE);
     }
 
     if (draw_button(renderer, font, maxed ? "Max" : "Buy", btn_x2, btn_y2, btn_w2, btn_h2, can_buy, PAL_BTN_NORMAL, maxed ? "Fully upgraded." : name)) {
@@ -1805,6 +1983,217 @@ static void render_main_menu(SDL_Renderer *renderer, GameState *state, TTF_Font 
       SDL_PushEvent(&ev);
     }
   }
+
+  /* ── Admin button (top-right corner) ────────────────────────────────────── */
+  {
+    int ab_w = 96, ab_h = 26;
+    int ab_x  = WINDOW_WIDTH - ab_w - 14;
+    int ab_y  = 14;
+
+    PaletteColor ab_fill = ui.admin_authenticated ? PAL_BTN_ACTIVE : PAL_BTN_NORMAL;
+    const char  *ab_lbl  = ui.admin_authenticated ? "* ADMIN *"    : "Admin";
+    const char  *ab_tip  = ui.admin_authenticated ? "Open admin panel." : "Admin login.";
+
+    if (draw_button(renderer, font, ab_lbl, ab_x, ab_y, ab_w, ab_h, true, ab_fill, ab_tip)) {
+      if (!ui.admin_authenticated) {
+        /* open / close login dialog */
+        ui.admin_login_open = !ui.admin_login_open;
+        if (ui.admin_login_open) {
+          ui.admin_active_field    = 0;
+          ui.admin_username_buf[0] = '\0';
+          ui.admin_password_buf[0] = '\0';
+          ui.admin_error_msg[0]    = '\0';
+        } else {
+          if (ui.admin_active_field != 0) SDL_StopTextInput();
+          ui.admin_active_field = 0;
+        }
+      } else {
+        /* toggle cheat dropdown */
+        ui.admin_panel_open = !ui.admin_panel_open;
+      }
+    }
+
+    /* ── Admin cheat dropdown (shown when authenticated) ─────────────────── */
+    if (ui.admin_authenticated && ui.admin_panel_open) {
+      bool game_on  = state->game_started;
+      int  num_rows = game_on ? 5 : 1;   /* cheats + logout */
+      int  bh2 = 28, bg2 = 6;
+      int  pan_w2 = 190;
+      int  pan_h2 = 10 + num_rows * (bh2 + bg2) + 4;
+      int  pan_x2 = ab_x + ab_w - pan_w2;
+      int  pan_y2 = ab_y + ab_h + 4;
+      draw_rect_palette(renderer, pan_x2, pan_y2, pan_w2, pan_h2, PAL_BG_PANEL, true, PAL_BTN_ACTIVE);
+
+      int bx2 = pan_x2 + 8;
+      int by2 = pan_y2 + 10;
+      int bw2 = pan_w2 - 16;
+
+      if (game_on) {
+        if (draw_button(renderer, font, "Fill Resources", bx2, by2, bw2, bh2, true, PAL_BTN_NORMAL,
+                        "Set all unlocked resources to their cap.")) {
+          for (int i = 0; i < RES_COUNT; ++i)
+            if (state->unlocked[i]) state->resources[i] = state->caps[i];
+          notifs_add(state, "[Admin] Resources filled.", 3.0f, PAL_GOLD);
+          ui.admin_panel_open = false;
+        }
+        by2 += bh2 + bg2;
+
+        if (draw_button(renderer, font, "Unlock Upgrades", bx2, by2, bw2, bh2, true, PAL_BTN_NORMAL,
+                        "Unlock every upgrade immediately.")) {
+          for (int i = 0; i < UPG_COUNT; ++i) state->upgrades[i] = true;
+          notifs_add(state, "[Admin] All upgrades unlocked.", 3.0f, PAL_GOLD);
+          ui.admin_panel_open = false;
+        }
+        by2 += bh2 + bg2;
+
+        if (draw_button(renderer, font, "Max Buildings", bx2, by2, bw2, bh2, true, PAL_BTN_NORMAL,
+                        "Set every building count to 99.")) {
+          for (int i = 0; i < BLD_COUNT; ++i) state->buildings[i].count = 99;
+          notifs_add(state, "[Admin] Buildings maxed.", 3.0f, PAL_GOLD);
+          ui.admin_panel_open = false;
+        }
+        by2 += bh2 + bg2;
+
+        if (draw_button(renderer, font, "Grant Essence", bx2, by2, bw2, bh2, true, PAL_BTN_NORMAL,
+                        "Add 1,000,000 essence.")) {
+          state->essence += 1000000.0;
+          notifs_add(state, "[Admin] +1,000,000 essence.", 3.0f, PAL_GOLD);
+          ui.admin_panel_open = false;
+        }
+        by2 += bh2 + bg2;
+      }
+
+      if (draw_button(renderer, font, "Logout", bx2, by2, bw2, bh2, true, PAL_BTN_NORMAL,
+                      "Log out of admin mode.")) {
+        ui.admin_authenticated = false;
+        ui.admin_panel_open    = false;
+      }
+    }
+  }
+
+  /* ── Admin login dialog (modal overlay) ─────────────────────────────────── */
+  if (ui.admin_login_open) {
+    /* dim the rest of the screen */
+    draw_rect(renderer, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+              (ColorRGBA){0, 0, 0, 160}, false, (ColorRGBA){0, 0, 0, 0});
+
+    int dlg_w = 380, dlg_h = 252;
+    int dlg_x = (WINDOW_WIDTH  - dlg_w) / 2;
+    int dlg_y = (WINDOW_HEIGHT - dlg_h) / 2;
+    draw_rect_palette(renderer, dlg_x, dlg_y, dlg_w, dlg_h, PAL_BG_PANEL, true, PAL_BTN_ACTIVE);
+
+    int dcx = dlg_x + dlg_w / 2;
+    draw_label(renderer, font_large, "ADMIN LOGIN", dcx, dlg_y + 16, PAL_TEXT,     ALIGN_CENTER);
+    draw_label(renderer, font,       "Restricted access", dcx, dlg_y + 40, PAL_TEXT_DIM, ALIGN_CENTER);
+
+    int lbl_x   = dlg_x + 16;
+    int fld_x   = dlg_x + 106;
+    int fld_w   = dlg_w - 122;
+    int fld_h   = 28;
+    int yy2     = dlg_y + 72;
+
+    /* ── Username field ────────────────────────────────────────────────────── */
+    draw_label(renderer, font, "Username:", lbl_x, yy2 + 6, PAL_TEXT_DIM, ALIGN_LEFT);
+    {
+      bool act = (ui.admin_active_field == 1);
+      bool hov = rect_hovered(fld_x, yy2, fld_w, fld_h);
+      PaletteColor bdr = act ? PAL_BTN_ACTIVE : (hov ? PAL_BTN_HOVER : PAL_TEXT_DIM);
+      draw_rect_palette(renderer, fld_x, yy2, fld_w, fld_h, PAL_BG_PANEL, true, bdr);
+
+      char disp[66];
+      if (act) {
+        bool show_cur = (SDL_GetTicks() / 530) % 2 == 0;
+        (void)snprintf(disp, sizeof(disp), "%s%s", ui.admin_username_buf, show_cur ? "|" : "");
+        draw_label_fit(renderer, font, disp, fld_x + 7, yy2 + 6, PAL_TEXT, fld_w - 14, ALIGN_LEFT);
+      } else if (ui.admin_username_buf[0]) {
+        draw_label_fit(renderer, font, ui.admin_username_buf, fld_x + 7, yy2 + 6, PAL_TEXT, fld_w - 14, ALIGN_LEFT);
+      } else {
+        draw_label(renderer, font, "enter username", fld_x + 7, yy2 + 6, PAL_TEXT_DIM, ALIGN_LEFT);
+      }
+
+      if (!ui.input_blocked && hov) {
+        ui_set_tooltip("Type your username.", fld_x, yy2, TOOLTIP_ABOVE);
+        if (ui_take_click() && !act) {
+          ui.admin_active_field = 1;
+          SDL_StartTextInput();
+        }
+      }
+    }
+    yy2 += 44;
+
+    /* ── Password field ────────────────────────────────────────────────────── */
+    draw_label(renderer, font, "Password:", lbl_x, yy2 + 6, PAL_TEXT_DIM, ALIGN_LEFT);
+    {
+      bool act = (ui.admin_active_field == 2);
+      bool hov = rect_hovered(fld_x, yy2, fld_w, fld_h);
+      PaletteColor bdr = act ? PAL_BTN_ACTIVE : (hov ? PAL_BTN_HOVER : PAL_TEXT_DIM);
+      draw_rect_palette(renderer, fld_x, yy2, fld_w, fld_h, PAL_BG_PANEL, true, bdr);
+
+      /* build masked string */
+      size_t pwlen = strlen(ui.admin_password_buf);
+      if (pwlen > 32) pwlen = 32;
+      char masked[36];
+      for (size_t mi = 0; mi < pwlen; ++mi) masked[mi] = '*';
+      masked[pwlen] = '\0';
+
+      if (act || ui.admin_password_buf[0]) {
+        char disp[38];
+        if (act) {
+          bool show_cur = (SDL_GetTicks() / 530) % 2 == 0;
+          (void)snprintf(disp, sizeof(disp), "%s%s", masked, show_cur ? "|" : "");
+        } else {
+          (void)snprintf(disp, sizeof(disp), "%s", masked);
+        }
+        draw_label_fit(renderer, font, disp, fld_x + 7, yy2 + 6, PAL_TEXT, fld_w - 14, ALIGN_LEFT);
+      } else {
+        draw_label(renderer, font, "enter password", fld_x + 7, yy2 + 6, PAL_TEXT_DIM, ALIGN_LEFT);
+      }
+
+      if (!ui.input_blocked && hov) {
+        ui_set_tooltip("Type your password.", fld_x, yy2, TOOLTIP_ABOVE);
+        if (ui_take_click() && !act) {
+          ui.admin_active_field = 2;
+          SDL_StartTextInput();
+        }
+      }
+    }
+    yy2 += 44;
+
+    /* ── Error message ─────────────────────────────────────────────────────── */
+    if (ui.admin_error_msg[0]) {
+      draw_label(renderer, font, ui.admin_error_msg, dcx, yy2, PAL_RUST, ALIGN_CENTER);
+    }
+    yy2 += 22;
+
+    /* ── Login / Cancel buttons ────────────────────────────────────────────── */
+    int act_btn_w = 120, act_btn_h = 32;
+    if (draw_button(renderer, font, "Login", fld_x, yy2, act_btn_w, act_btn_h, true, PAL_BTN_NORMAL,
+                    "Attempt to log in.")) {
+      if (strcmp(ui.admin_username_buf, "rootofcode") == 0 &&
+          strcmp(ui.admin_password_buf, "24012004")  == 0) {
+        ui.admin_authenticated   = true;
+        ui.admin_login_open      = false;
+        ui.admin_active_field    = 0;
+        ui.admin_username_buf[0] = '\0';
+        ui.admin_password_buf[0] = '\0';
+        SDL_StopTextInput();
+      } else {
+        (void)snprintf(ui.admin_error_msg, sizeof(ui.admin_error_msg), "Invalid credentials.");
+        ui.admin_password_buf[0] = '\0';
+      }
+    }
+
+    int cancel_x = fld_x + fld_w - act_btn_w;
+    if (draw_button(renderer, font, "Cancel", cancel_x, yy2, act_btn_w, act_btn_h, true, PAL_BTN_NORMAL,
+                    "Close this dialog.")) {
+      ui.admin_login_open      = false;
+      ui.admin_active_field    = 0;
+      ui.admin_username_buf[0] = '\0';
+      ui.admin_password_buf[0] = '\0';
+      ui.admin_error_msg[0]    = '\0';
+      SDL_StopTextInput();
+    }
+  }
 }
 
 static void render_options_menu(SDL_Renderer *renderer, GameState *state, TTF_Font *font, TTF_Font *font_large) {
@@ -2066,6 +2455,7 @@ void render_frame(SDL_Renderer *renderer, GameState *state, TTF_Font *font, TTF_
       render_main_panel(renderer, state, font, font_large, main_x, main_y, main_w, main_h);
       render_resource_sidebar(renderer, state, font, sidebar_x, sidebar_y, sidebar_w, main_h);
       render_notifications(renderer, font, state, 0, WINDOW_HEIGHT - 28, WINDOW_WIDTH, 28);
+      render_milestone_popups(renderer, font, state);
 
       if (modal) {
         ui.input_blocked = false;
