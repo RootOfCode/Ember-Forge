@@ -46,6 +46,25 @@ typedef struct NotifList {
   size_t len;
 } NotifList;
 
+/* ── Milestone popups ───────────────────────────────────────────────────────
+ * Displayed as prominent floating cards in the bottom-right corner,
+ * separate from the generic bottom-bar notification strip.
+ * Each card shows for `duration` seconds and then expires.
+ */
+#define MILESTONE_QUEUE_MAX 6
+
+typedef struct MilestonePopup {
+  char  text[256];     /* full label, e.g. "★ First Iron Bar!"            */
+  float timer;         /* seconds remaining                                */
+  float duration;      /* total display time (for computing fade fraction) */
+  PaletteColor color;  /* accent colour matching the resource              */
+} MilestonePopup;
+
+typedef struct MilestoneQueue {
+  MilestonePopup items[MILESTONE_QUEUE_MAX];
+  size_t         len;
+} MilestoneQueue;
+
 typedef struct ManualJob {
   bool active;
   ResourceId resource;
@@ -108,6 +127,7 @@ typedef struct GameState {
   Panel active_panel;
 
   NotifList notifications;
+  MilestoneQueue milestone_popups;
   int smelt_slots_extra;
 
   int          crucibles_purchased;          /* 0..MAX_CRUCIBLES */
@@ -134,6 +154,10 @@ float manual_job_progress(const ManualJob *job);
 
 void notifs_add(GameState *state, const char *text, float timer_seconds, PaletteColor color);
 void notifs_tick(GameState *state, float dt_seconds);
+
+/* Milestone popup API (separate from generic notifs) */
+void milestone_popups_add(GameState *state, const char *text, float duration, PaletteColor color);
+void milestone_popups_tick(GameState *state, float dt_seconds);
 
 void smelt_queue_init(SmeltQueue *queue);
 void smelt_queue_destroy(SmeltQueue *queue);
